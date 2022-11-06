@@ -1,43 +1,35 @@
 #include "Game.h"
 
-// constructor
 Game::Game(IGameRules *gameRules) : gameRules(gameRules)
 {
-    create_window();
-
     playerFactory = new PlayerFactory();
-    p = playerFactory->create();
-    p->setPosition(sf::Vector2f(320.f, 320.f));
-
+    player = playerFactory->create();
     playerDirectionCalculator = new EntityDirectionCalculator();
     cursorDirectionCalculator = new CursorDirectionCalculator();
 
-    view.setSize(1280, 720);
+    player->setPosition(sf::Vector2f(PLAYER_START_X, PLATER_START_Y));
+
+    createWindow();
+
+    view.setSize(VIEW_WIDTH, VIEW_HEIGHT);
 }
 
-
-// destructor
 Game::~Game()
 {
-    delete p;
-
+    delete player;
     for (auto *enemy : enemies)
         delete enemy;
-
     delete playerDirectionCalculator;
     delete cursorDirectionCalculator;
-
     delete gameRules;
-
-   delete playerFactory;
-
+    delete playerFactory;
     delete window;
 }
 
 void Game::createWindow()
 {
-    window = new sf::RenderWindow(sf::VideoMode(1280, 720), "2D shooter", sf::Style::Default);
-    window->setFramerateLimit(120);
+    window = new sf::RenderWindow(sf::VideoMode(VIEW_WIDTH, VIEW_HEIGHT), "2D shooter", sf::Style::Default);
+    window->setFramerateLimit(FRAME_RATE_LIMIT);
     window->setVerticalSyncEnabled(false);
 }
 
@@ -51,23 +43,28 @@ void Game::run()
     }
 }
 
-// this class updates the game
 void Game::update()
 {
-    gameRules->updateBullets(p->getBullets());
-    p->update(cursorDirectionCalculator->calculateDirection(window, p));
+    gameRules->updateBullets(player->getBullets());
+    player->update(cursorDirectionCalculator->calculateDirection(window, player));
 
     gameRules->spawnEnemy(enemies);
 
+    checkKills()
+}
+
+void Game : checkKills()
+{
     for (auto enemy = enemies.begin(); enemy != enemies.end();)
     {
-        (*enemy)->update(playerDirectionCalculator->calculateDirection(window, p, (*enemy)));
+        (*enemy)->update(playerDirectionCalculator->calculateDirection(window, player, (*enemy)));
         gameRules->updateBullets((*enemy)->getBullets());
 
-        if (gameRules->wasKilled(p, (*enemy)->getBullets()))
+        if (gameRules->wasKilled(player, (*enemy)->getBullets()))
             window->close();
 
-        if (gameRules->wasKilled((*enemy), p->getBullets())){
+        if (gameRules->wasKilled((*enemy), player->getBullets()))
+        {
             (*enemy)->die();
             enemy = enemies.erase(enemy);
         }
@@ -80,29 +77,28 @@ void Game::draw()
 {
     window->clear();
 
-    view.setCenter(p->getPosition());
+    view.setCenter(player->getPosition());
 
     window->setView(view);
 
     std::vector<Entity *> entities(combineEntities());
-    for (int i = 0; i < entities.size(); i++)
+    for (auto entity : entities)
     {
-        entities[i]->draw(*window);
-        for (auto bullet : entities[i]->getBullets())
+        entity->draw(*window);
+        for (auto bullet : entity->getBullets())
             bullet->draw(*window);
     }
 
     window->display();
 }
 
-void Game::handleEvents(sf::Event event)
+void Game::handleEvents()
 {
     sf::Event windowEvent;
     while (window->pollEvent(windowEvent))
     {
-        if (windowEvent.type == sf::Event::Closed)
-            window->close();
-        if (windowEvent.type == sf::Event::KeyPressed && windowEvent.key.code == sf::Keyboard::Escape)
+        if (windowEvent.type == sf::Event::Closed ||
+            (sf::Event::KeyPressed && windowEvent.key.code == sf::Keyboard::Escape))
             window->close();
     }
 }
@@ -110,6 +106,6 @@ void Game::handleEvents(sf::Event event)
 std::vector<Entity *> Game::combineEntities()
 {
     std::vector<Entity *> entities(enemies.begin(), enemies.end());
-    entities.insert(entities.end(), p);
+    entities.insert(entities.end(), player);
     return entities;
 }
